@@ -1,32 +1,40 @@
 # quadretti — applicazione React
 
-Questo archivio contiene il progetto completo del sito **quadretti**, realizzato con React 19, TypeScript e Vinext/Next.
+Progetto Vite + React 19 + TypeScript. Il disegno vive interamente nel browser: non serve un backend.
 
 ## Requisiti
 
-- Node.js 22.13 o successivo
-- pnpm 11 o successivo
+- Node.js 20 o successivo
+- npm
 
 ## Avvio in locale
 
 ```bash
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
-Aprire quindi l'indirizzo mostrato nel terminale, normalmente `http://localhost:5173`.
+Aprire [http://localhost:5173](http://localhost:5173).
 
 ## Build di produzione
 
 ```bash
-pnpm build
+npm run build
 ```
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+L'interfaccia è disponibile su [http://localhost](http://localhost).
 
 ## File principali
 
-- `app/page.tsx`: logica dell'editor, disegno, simmetria e riempimenti
-- `app/globals.css`: interfaccia e stile grafico
-- `app/layout.tsx`: struttura e metadati della pagina
+- `src/App.tsx`: logica dell'editor, disegno, simmetria e riempimenti
+- `src/index.css`: interfaccia e stile grafico
+- `src/main.tsx`: ingresso React
 - `DESIGN.md`: specifiche funzionali e di design
 
-L'applicazione non richiede un backend per le funzionalità attuali. Il foglio parte vuoto e tutto il disegno viene gestito nel browser.
+Il foglio parte vuoto e tutto il disegno viene gestito nel browser.
