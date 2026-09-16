@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
 import { COLORS, ZOOM_DEFAULT, clampZoom, zoomFromWheel } from "../constants/drawing";
 import { loadCustomColors, persistCustomColors } from "../services/content/customColors";
-import { buildFaces, faceAt, faceKey, replaceFillsForFaces } from "../services/content/geometry";
-import { transformedPoints, transformedSegments } from "../services/content/symmetry";
+import { applyFill, syncFills } from "../services/content/fillService";
+import { transformedSegments } from "../services/content/symmetry";
 import { eventPixel, hitTest, logicalFromPixel, pointFromPixel } from "../services/page/coordinates";
 import { exportPdf as exportPdfDocument } from "../services/page/exportPdf";
 import { drawCanvas } from "../services/page/renderer";
-import type { Face, Fill, FillNotice, PixelPoint, Point, Segment, Snapshot, Symmetry, Tool } from "../types/drawing";
+import type { Fill, FillNotice, PixelPoint, Point, Segment, Snapshot, Symmetry, Tool } from "../types/drawing";
 import { useCanvasSize } from "./useCanvasSize";
 import { useKeyboardDrawing } from "./useKeyboardDrawing";
 
@@ -65,8 +65,6 @@ export function useEditor() {
     persistCustomColors(next);
   }, []);
 
-  const faces = useMemo(() => buildFaces(segments), [segments]);
-
   useEffect(() => {
     if (!fillNotice) return;
     const timer = window.setTimeout(() => setFillNotice(null), 1800);
@@ -79,16 +77,19 @@ export function useEditor() {
     const groupId = `gesture-${Date.now()}-${gestureId.current++}`;
     const pairs = transformedSegments(a, b, symmetry);
     const made = pairs.map((pair, i): Segment => ({ id: `${groupId}-${i}`, groupId, a: pair.a, b: pair.b, color }));
-    setSegments(old => [...old, ...made]);
+    const next = [...segments, ...made];
+    setSegments(next);
+    setFills(old => syncFills(old, next));
     setSelectedGroup(null);
-  }, [color, saveHistory, symmetry]);
+  }, [color, saveHistory, segments, symmetry]);
 
   const deleteGroup = useCallback((groupId: string) => {
     saveHistory();
-    setSegments(old => old.filter(s => s.groupId !== groupId));
-    setFills(old => old.filter(f => !f.boundaryGroups.includes(groupId)));
+    const next = segments.filter(s => s.groupId !== groupId);
+    setSegments(next);
+    setFills(old => syncFills(old, next));
     setSelectedGroup(null);
-  }, [saveHistory]);
+  }, [saveHistory, segments]);
 
   useKeyboardDrawing({
     tool,
@@ -146,18 +147,13 @@ export function useEditor() {
       setMouseStart(p);
       return;
     }
-    const targets = transformedPoints(logicalFromPixel(pixel, size, zoom), symmetry);
-    const found: Face[] = [];
-    for (const target of targets) {
-      const face = faceAt(target, faces);
-      if (face && !found.some(item => faceKey(item.polygon) === faceKey(face.polygon))) found.push(face);
-    }
-    if (found.length === 0) {
+    const result = applyFill(logicalFromPixel(pixel, size, zoom), fills, segments, color, symmetry);
+    if (result.notice === "open") {
       setFillNotice("open");
       return;
     }
     saveHistory();
-    setFills(old => replaceFillsForFaces(old, found, color));
+    setFills(result.fills);
     setFillNotice("filled");
   }
 
