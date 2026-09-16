@@ -12,6 +12,19 @@ type Symmetry = 1 | 2 | 4;
 
 const COLORS = ["#ef4444", "#f59e0b", "#16a34a", "#2563eb", "#7c3aed", "#ec4899", "#171717"];
 const GRID = 28;
+
+const STORAGE_KEY = "quadretti.customColors";
+const EMPTY_SLOTS: (string | null)[] = [null, null, null, null, null];
+function loadCustomColors(): (string | null)[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed) && parsed.length === 5) {
+      return parsed.map((v: unknown) => typeof v === "string" ? v : null);
+    }
+  } catch { /* ignore */ }
+  return [...EMPTY_SLOTS];
+}
 const initialSegments: Segment[] = [];
 const initialFills: Fill[] = [];
 
@@ -69,11 +82,14 @@ export default function App() {
   const [segments,setSegments]=useState<Segment[]>(initialSegments),[fills,setFills]=useState<Fill[]>(initialFills);
   const [history,setHistory]=useState<Snapshot[]>([]),[redo,setRedo]=useState<Snapshot[]>([]);
   const [tool,setTool]=useState<Tool>("line"),[symmetry,setSymmetry]=useState<Symmetry>(4),[color,setColor]=useState(COLORS[0]);
+  const [customSlots,setCustomSlots]=useState<(string|null)[]>(loadCustomColors),[armedSlot,setArmedSlot]=useState<number|null>(null);
+  const wheelRef=useRef<HTMLInputElement>(null);
   const [zoom,setZoom]=useState(1),[mouseStart,setMouseStart]=useState<Point|null>(null),[spaceStart,setSpaceStart]=useState<Point|null>(null);
   const [cursor,setCursor]=useState<Point>({x:0,y:0}),[hover,setHover]=useState<Point|null>(null),[rawMouse,setRawMouse]=useState<PixelPoint|null>(null);
   const [selectedGroup,setSelectedGroup]=useState<string|null>(null),[size,setSize]=useState({w:1000,h:650});
   const [fillNotice,setFillNotice]=useState<"filled"|"open"|null>(null);
   const saveHistory=useCallback(()=>{setHistory(h=>[...h.slice(-39),{segments,fills}]);setRedo([])},[segments,fills]);
+  const persistSlots=useCallback((next:(string|null)[])=>{setCustomSlots(next);try{localStorage.setItem(STORAGE_KEY,JSON.stringify(next))}catch{/* ignore */}},[]);
 
   useEffect(()=>{const update=()=>{if(wrapRef.current)setSize({w:wrapRef.current.clientWidth,h:wrapRef.current.clientHeight})};update();const o=new ResizeObserver(update);if(wrapRef.current)o.observe(wrapRef.current);return()=>o.disconnect()},[]);
   const toCanvas=useCallback((p:Point):PixelPoint=>({x:size.w/2+p.x*GRID*zoom,y:size.h/2+p.y*GRID*zoom}),[size,zoom]);
@@ -111,6 +127,8 @@ export default function App() {
   function pointerUp(e:PointerEvent<HTMLCanvasElement>){if(tool!=="line"||!mouseStart)return;const end=pointFromPixel(eventPixel(e));commitLine(mouseStart,end);setCursor(end);setMouseStart(null)}
   function undo(){const p=history.at(-1);if(!p)return;setRedo(r=>[...r,{segments,fills}]);setSegments(p.segments);setFills(p.fills);setHistory(h=>h.slice(0,-1));setSelectedGroup(null)}
   function redoAction(){const n=redo.at(-1);if(!n)return;setHistory(h=>[...h,{segments,fills}]);setSegments(n.segments);setFills(n.fills);setRedo(r=>r.slice(0,-1));setSelectedGroup(null)}
+  function clickSlot(i:number){const value=customSlots[i];if(value){setColor(value);setArmedSlot(null)}else setArmedSlot(i)}
+  function onWheelChange(e:React.ChangeEvent<HTMLInputElement>){if(armedSlot===null)return;const picked=e.target.value;const next=customSlots.slice();next[armedSlot]=picked;persistSlots(next);setColor(picked);setArmedSlot(null)}
   function exportPdf(){const canvas=canvasRef.current;if(!canvas)return;const cs=[...new Set([...segments.map(s=>s.color),...fills.map(f=>f.color)])],rows=cs.map(c=>`<tr><td><i style="background:${c}"></i>${c}</td><td>${segments.filter(s=>s.color===c).length}</td><td>${fills.filter(f=>f.color===c).length}</td></tr>`).join("");const p=window.open("","_blank");if(!p)return;p.document.write(`<!doctype html><html><head><title>quadretti</title><style>@page{size:A4;margin:18mm}body{font:15px Arial;color:#17202a;margin:0}.page{min-height:255mm;page-break-after:always}h1{font-size:30px;margin:0 0 8px}.meta{color:#64748b;margin-bottom:34px}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #dbe7ef;padding:12px;text-align:left}i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:10px;vertical-align:-2px}.art{display:flex;align-items:center;justify-content:center}.art img{max-width:100%;max-height:250mm;border:1px solid #dbe7ef}</style></head><body><section class="page"><h1>Inventario delle forme</h1><p class="meta">quadretti · unità geometriche del disegno</p><table><thead><tr><th>Colore</th><th>Segmenti</th><th>Aree riempite</th></tr></thead><tbody>${rows}</tbody></table><p><strong>Totale:</strong> ${segments.length} segmenti · ${fills.length} aree colorate</p></section><section class="page art"><img src="${canvas.toDataURL("image/png")}" /></section><script>onload=()=>setTimeout(()=>print(),250)<\/script></body></html>`);p.document.close()}
 
   return <main className="app-shell">
@@ -133,7 +151,14 @@ export default function App() {
       <div className="floating-stack right-symmetry" aria-label="Simmetria">
         {([1,2,4] as Symmetry[]).map(v=><button key={v} className={symmetry===v?"float-btn text active":"float-btn text"} onClick={()=>setSymmetry(v)} aria-label={v===1?"Simmetria disattivata":`Simmetria ${v} lati`}>{v===1?"1×":`${v}×`}</button>)}
       </div>
-      <div className="floating-colors" aria-label="Colori">{COLORS.map(c=><button key={c} className={color===c?"color-btn selected":"color-btn"} style={{backgroundColor:c}} onClick={()=>setColor(c)} aria-label={`Colore ${c}`}/>)}</div>
+      <div className="floating-colors" aria-label="Colori">
+        {COLORS.map(c=><button key={c} className={color===c?"color-btn selected":"color-btn"} style={{backgroundColor:c}} onClick={()=>setColor(c)} aria-label={`Colore ${c}`}/>)}
+        <div className="color-divider"/>
+        <input ref={wheelRef} type="color" className="color-wheel" value={color} onChange={onWheelChange} aria-label="Ruota dei colori"/>
+        <div className="color-slots">
+          {customSlots.map((slot,i)=><button key={i} className={slot&&color===slot?"color-btn selected":armedSlot===i?"color-btn armed":"color-btn"} style={slot?{backgroundColor:slot}:undefined} onClick={()=>clickSlot(i)} aria-label={slot?`Colore personalizzato ${slot}`:`Spazio colore vuoto ${i+1}`}/>)}
+        </div>
+      </div>
       <div className="floating-zoom"><button onClick={()=>setZoom(z=>Math.max(.55,z-.15))} aria-label="Riduci zoom"><Minus/></button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(z=>Math.min(1.8,z+.15))} aria-label="Aumenta zoom"><Plus/></button></div>
       {selectedGroup&&<div className="selection-toast"><Trash2/>Gruppo simmetrico selezionato <kbd>Canc</kbd></div>}
       {fillNotice&&<div className={fillNotice==="open"?"fill-notice error":"fill-notice success"}>{fillNotice==="open"?"Questa zona è aperta: chiudi prima il contorno.":"Area chiusa riempita."}</div>}
