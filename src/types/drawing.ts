@@ -1,5 +1,6 @@
 export type Point = { x: number; y: number };
 export type PixelPoint = { x: number; y: number };
+export type PanOffset = { x: number; y: number };
 export type Segment = { id: string; groupId: string; a: Point; b: Point; color: string };
 export type Fill = { id: string; polygon: Point[]; holes: Point[][]; color: string; boundaryGroups: string[] };
 export type Face = { polygon: Point[]; holes: Point[][]; boundaryGroups: string[]; area: number };

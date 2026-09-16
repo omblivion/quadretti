@@ -4,11 +4,14 @@ import { loadCustomColors, persistCustomColors } from "../services/content/custo
 import { applyFill, syncFills } from "../services/content/fillService";
 import { transformedSegments } from "../services/content/symmetry";
 import { eventPixel, hitTest, logicalFromPixel, pointFromPixel } from "../services/page/coordinates";
+import { downloadQuadretto, readQuadrettoFile, serializeQuadretto } from "../services/content/quadretto";
 import { exportPdf as exportPdfDocument } from "../services/page/exportPdf";
 import { drawCanvas } from "../services/page/renderer";
 import type { Fill, FillNotice, PixelPoint, Point, Segment, Snapshot, Symmetry, Tool } from "../types/drawing";
+import type { FileNotice } from "../types/quadretto";
 import { useCanvasSize } from "./useCanvasSize";
 import { useKeyboardDrawing } from "./useKeyboardDrawing";
+import { useTouchPan } from "./useTouchPan";
 
 const initialSegments: Segment[] = [];
 const initialFills: Fill[] = [];
@@ -36,9 +39,15 @@ export function useEditor() {
   const [rawMouse, setRawMouse] = useState<PixelPoint | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [fillNotice, setFillNotice] = useState<FillNotice | null>(null);
+  const [fileNotice, setFileNotice] = useState<FileNotice | null>(null);
   const [showGrid, setShowGrid] = useState(true);
 
   const size = useCanvasSize(wrapRef);
+  const touchPan = useTouchPan(canvasRef, () => {
+    setMouseStart(null);
+    setHover(null);
+  });
+  const pan = touchPan.pan;
 
   const setZoom = useCallback((updater: number | ((zoom: number) => number)) => {
     setZoomState(z => clampZoom(typeof updater === "function" ? updater(z) : updater));
@@ -70,6 +79,12 @@ export function useEditor() {
     const timer = window.setTimeout(() => setFillNotice(null), 1800);
     return () => window.clearTimeout(timer);
   }, [fillNotice]);
+
+  useEffect(() => {
+    if (!fileNotice) return;
+    const timer = window.setTimeout(() => setFileNotice(null), 1800);
+    return () => window.clearTimeout(timer);
+  }, [fileNotice]);
 
   const commitLine = useCallback((a: Point, b: Point) => {
     if (a.x === b.x && a.y === b.y) return;
@@ -112,6 +127,7 @@ export function useEditor() {
       canvas,
       size,
       zoom,
+      pan,
       fills,
       segments,
       selectedGroup,
@@ -123,31 +139,24 @@ export function useEditor() {
       color,
       showGrid,
     });
-  }, [color, cursor, fills, hover, mouseStart, rawMouse, segments, selectedGroup, showGrid, size, spaceStart, zoom]);
+  }, [color, cursor, fills, hover, mouseStart, pan, rawMouse, segments, selectedGroup, showGrid, size, spaceStart, zoom]);
 
   useEffect(draw, [draw]);
 
-  function pointerDown(e: PointerEvent<HTMLCanvasElement>) {
-    e.currentTarget.focus();
-    const pixel = eventPixel(e);
-    const p = pointFromPixel(pixel, size, zoom);
+  function applyPointTool(pixel: PixelPoint) {
+    const p = pointFromPixel(pixel, size, zoom, pan);
     setCursor(p);
     setRawMouse(pixel);
     if (tool === "select") {
-      setSelectedGroup(hitTest(pixel, segments, size, zoom));
+      setSelectedGroup(hitTest(pixel, segments, size, zoom, pan));
       return;
     }
     if (tool === "eraser") {
-      const group = hitTest(pixel, segments, size, zoom);
+      const group = hitTest(pixel, segments, size, zoom, pan);
       if (group) deleteGroup(group);
       return;
     }
-    if (tool === "line") {
-      setSelectedGroup(null);
-      setMouseStart(p);
-      return;
-    }
-    const result = applyFill(logicalFromPixel(pixel, size, zoom), fills, segments, color, symmetry);
+    const result = applyFill(logicalFromPixel(pixel, size, zoom, pan), fills, segments, color, symmetry);
     if (result.notice === "open") {
       setFillNotice("open");
       return;
@@ -157,17 +166,47 @@ export function useEditor() {
     setFillNotice("filled");
   }
 
+  function pointerDown(e: PointerEvent<HTMLCanvasElement>) {
+    e.currentTarget.focus();
+    if (e.pointerType === "touch") e.currentTarget.setPointerCapture(e.pointerId);
+    if (touchPan.isDrawLocked()) return;
+    const pixel = eventPixel(e);
+    const p = pointFromPixel(pixel, size, zoom, pan);
+    setCursor(p);
+    setRawMouse(pixel);
+    if (tool === "line") {
+      setSelectedGroup(null);
+      setMouseStart(p);
+      return;
+    }
+    if (e.pointerType === "touch") return;
+    applyPointTool(pixel);
+  }
+
   function pointerMove(e: PointerEvent<HTMLCanvasElement>) {
+    if (touchPan.isDrawLocked()) return;
     const pixel = eventPixel(e);
     setRawMouse(pixel);
-    setHover(pointFromPixel(pixel, size, zoom));
+    setHover(pointFromPixel(pixel, size, zoom, pan));
   }
 
   function pointerUp(e: PointerEvent<HTMLCanvasElement>) {
-    if (tool !== "line" || !mouseStart) return;
-    const end = pointFromPixel(eventPixel(e), size, zoom);
-    commitLine(mouseStart, end);
-    setCursor(end);
+    if (e.pointerType === "touch" && touchPan.isDrawLocked()) {
+      setMouseStart(null);
+      return;
+    }
+    if (tool === "line") {
+      if (!mouseStart) return;
+      const end = pointFromPixel(eventPixel(e), size, zoom, pan);
+      commitLine(mouseStart, end);
+      setCursor(end);
+      setMouseStart(null);
+      return;
+    }
+    if (e.pointerType === "touch") applyPointTool(eventPixel(e));
+  }
+
+  function pointerCancel() {
     setMouseStart(null);
   }
 
@@ -222,6 +261,35 @@ export function useEditor() {
     exportPdfDocument(canvas, segments, fills);
   }
 
+  function handleExportQuadretto() {
+    downloadQuadretto(serializeQuadretto(segments, fills));
+  }
+
+  async function handleImportQuadretto(file: File) {
+    let imported;
+    try {
+      imported = await readQuadrettoFile(file);
+    } catch {
+      setFillNotice(null);
+      setFileNotice("invalid");
+      return;
+    }
+    if (segments.length > 0 || fills.length > 0) {
+      const confirmed = window.confirm("Sostituire il disegno attuale con il progetto importato?");
+      if (!confirmed) {
+        setFillNotice(null);
+        setFileNotice("cancelled");
+        return;
+      }
+    }
+    saveHistory();
+    setSegments(imported.segments);
+    setFills(imported.fills);
+    setSelectedGroup(null);
+    setFillNotice(null);
+    setFileNotice("imported");
+  }
+
   function clearSheet() {
     saveHistory();
     setSegments([]);
@@ -247,11 +315,13 @@ export function useEditor() {
     toggleGrid: () => setShowGrid(value => !value),
     selectedGroup,
     fillNotice,
+    fileNotice,
     history,
     redo,
     pointerDown,
     pointerMove,
     pointerUp,
+    pointerCancel,
     pointerLeave,
     undo,
     redoAction,
@@ -260,5 +330,7 @@ export function useEditor() {
     clickSlot,
     onWheelChange,
     exportPdf: handleExportPdf,
+    exportQuadretto: handleExportQuadretto,
+    importQuadretto: handleImportQuadretto,
   };
 }

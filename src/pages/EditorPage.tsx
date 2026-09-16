@@ -20,6 +20,7 @@ export default function EditorPage() {
           onPointerDown={editor.pointerDown}
           onPointerMove={editor.pointerMove}
           onPointerUp={editor.pointerUp}
+          onPointerCancel={editor.pointerCancel}
           onPointerLeave={editor.pointerLeave}
         />
         <div className="wordmark">Quadretti</div>
@@ -35,7 +36,11 @@ export default function EditorPage() {
         />
         <div className="floating-top-right">
           <GridToggle showGrid={editor.showGrid} onToggle={editor.toggleGrid} />
-          <ExportButton onExport={editor.exportPdf} />
+          <ExportButton
+            onExportPdf={editor.exportPdf}
+            onExportProject={editor.exportQuadretto}
+            onImportProject={editor.importQuadretto}
+          />
         </div>
         <SymmetryControls symmetry={editor.symmetry} onChange={editor.setSymmetry} />
         <ColorPalette
@@ -48,7 +53,7 @@ export default function EditorPage() {
           onWheelChange={editor.onWheelChange}
         />
         <ZoomControls zoom={editor.zoom} onChange={editor.setZoom} />
-        <EditorNotices selectedGroup={editor.selectedGroup} fillNotice={editor.fillNotice} />
+        <EditorNotices selectedGroup={editor.selectedGroup} fillNotice={editor.fillNotice} fileNotice={editor.fileNotice} />
       </div>
     </main>
   );
