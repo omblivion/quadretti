@@ -1,0 +1,10 @@
+export type Point = { x: number; y: number };
+export type PixelPoint = { x: number; y: number };
+export type Segment = { id: string; groupId: string; a: Point; b: Point; color: string };
+export type Fill = { id: string; polygon: Point[]; holes: Point[][]; color: string; boundaryGroups: string[] };
+export type Face = { polygon: Point[]; holes: Point[][]; boundaryGroups: string[]; area: number };
+export type Snapshot = { segments: Segment[]; fills: Fill[] };
+export type Tool = "select" | "line" | "fill" | "eraser";
+export type Symmetry = 1 | 2 | 4;
+export type FillNotice = "filled" | "open";
+export type CanvasSize = { w: number; h: number };
