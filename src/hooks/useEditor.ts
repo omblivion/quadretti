@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
-import { COLORS } from "../constants/drawing";
+import { COLORS, ZOOM_DEFAULT, clampZoom, zoomFromWheel } from "../constants/drawing";
 import { loadCustomColors, persistCustomColors } from "../services/content/customColors";
 import { buildFaces, faceAt, faceKey, replaceFillsForFaces } from "../services/content/geometry";
 import { transformedPoints, transformedSegments } from "../services/content/symmetry";
@@ -28,7 +28,7 @@ export function useEditor() {
   const [color, setColor] = useState(COLORS[0]);
   const [customSlots, setCustomSlots] = useState<(string | null)[]>(loadCustomColors);
   const [armedSlot, setArmedSlot] = useState<number | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoomState] = useState(ZOOM_DEFAULT);
   const [mouseStart, setMouseStart] = useState<Point | null>(null);
   const [spaceStart, setSpaceStart] = useState<Point | null>(null);
   const [cursor, setCursor] = useState<Point>({ x: 0, y: 0 });
@@ -38,6 +38,21 @@ export function useEditor() {
   const [fillNotice, setFillNotice] = useState<FillNotice | null>(null);
 
   const size = useCanvasSize(wrapRef);
+
+  const setZoom = useCallback((updater: number | ((zoom: number) => number)) => {
+    setZoomState(z => clampZoom(typeof updater === "function" ? updater(z) : updater));
+  }, []);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      setZoom(z => zoomFromWheel(z, event.deltaY));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [setZoom]);
 
   const saveHistory = useCallback(() => {
     setHistory(h => [...h.slice(-39), { segments, fills }]);
@@ -85,6 +100,7 @@ export function useEditor() {
     setSelectedGroup,
     setMouseStart,
     setSpaceStart,
+    setZoom,
   });
 
   const draw = useCallback(() => {

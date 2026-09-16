@@ -1,4 +1,5 @@
 import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { ZOOM_DEFAULT, zoomByStep } from "../constants/drawing";
 import type { Point, Tool } from "../types/drawing";
 
 type KeyboardDrawingOptions = {
@@ -12,6 +13,7 @@ type KeyboardDrawingOptions = {
   setSelectedGroup: Dispatch<SetStateAction<string | null>>;
   setMouseStart: Dispatch<SetStateAction<Point | null>>;
   setSpaceStart: Dispatch<SetStateAction<Point | null>>;
+  setZoom: Dispatch<SetStateAction<number>>;
 };
 
 export function useKeyboardDrawing({
@@ -25,6 +27,7 @@ export function useKeyboardDrawing({
   setSelectedGroup,
   setMouseStart,
   setSpaceStart,
+  setZoom,
 }: KeyboardDrawingOptions) {
   useEffect(() => {
     function down(e: KeyboardEvent) {
@@ -45,6 +48,15 @@ export function useKeyboardDrawing({
         setMouseStart(null);
         setSpaceStart(null);
         setSelectedGroup(null);
+      } else if (e.key === "+" || e.key === "=" || e.code === "NumpadAdd") {
+        e.preventDefault();
+        setZoom(z => zoomByStep(z, 1));
+      } else if (e.key === "-" || e.key === "_" || e.code === "NumpadSubtract") {
+        e.preventDefault();
+        setZoom(z => zoomByStep(z, -1));
+      } else if ((e.key === "0" || e.code === "Digit0" || e.code === "Numpad0") && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setZoom(ZOOM_DEFAULT);
       }
     }
     function up(e: KeyboardEvent) {
@@ -60,5 +72,5 @@ export function useKeyboardDrawing({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [commitLine, cursor, deleteGroup, selectedGroup, setCursor, setMouseStart, setSelectedGroup, setSpaceStart, spaceStart, tool]);
+  }, [commitLine, cursor, deleteGroup, selectedGroup, setCursor, setMouseStart, setSelectedGroup, setSpaceStart, setZoom, spaceStart, tool]);
 }

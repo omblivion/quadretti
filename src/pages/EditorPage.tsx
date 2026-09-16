@@ -21,7 +21,7 @@ export default function EditorPage() {
           onPointerUp={editor.pointerUp}
           onPointerLeave={editor.pointerLeave}
         />
-        <div className="wordmark">quadretti</div>
+        <div className="wordmark">Quadretti</div>
         <ToolPalette tool={editor.tool} onChange={editor.setTool} />
         <HistoryActions
           canUndo={editor.history.length > 0}

@@ -31,7 +31,7 @@ export function drawCanvas(state: DrawState): void {
   c.fillRect(0, 0, size.w, size.h);
   const step = GRID * zoom, ox = size.w / 2, oy = size.h / 2;
   c.beginPath();
-  c.strokeStyle = "#dceaf3";
+  c.strokeStyle = "#c2c2c2";
   c.lineWidth = 1;
   for (let x = ox % step; x < size.w; x += step) {
     c.moveTo(x, 0);
@@ -43,7 +43,7 @@ export function drawCanvas(state: DrawState): void {
   }
   c.stroke();
   c.beginPath();
-  c.strokeStyle = "#91b8d2";
+  c.strokeStyle = "#8a8a8a";
   c.lineWidth = 1.5;
   c.moveTo(ox, 0);
   c.lineTo(ox, size.h);
