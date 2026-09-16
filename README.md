@@ -25,6 +25,6 @@ Open [http://localhost:5173](http://localhost:5173).
 docker compose up --build
 ```
 
-The app is served at [http://localhost](http://localhost). Override the host port with `HOST_PORT=8080 docker compose up --build`.
+The app is served at [http://localhost:7898](http://localhost:7898). Override the host port with `HOST_PORT=80 docker compose up --build`.
 
 See [DESIGN.md](DESIGN.md) for product and interaction details.
