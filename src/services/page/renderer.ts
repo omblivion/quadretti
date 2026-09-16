@@ -15,10 +15,11 @@ export type DrawState = {
   cursor: Point;
   hover: Point | null;
   color: string;
+  showGrid: boolean;
 };
 
 export function drawCanvas(state: DrawState): void {
-  const { canvas, size, zoom, fills, segments, selectedGroup, mouseStart, spaceStart, rawMouse, cursor, hover, color } = state;
+  const { canvas, size, zoom, fills, segments, selectedGroup, mouseStart, spaceStart, rawMouse, cursor, hover, color, showGrid } = state;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = size.w * dpr;
   canvas.height = size.h * dpr;
@@ -29,27 +30,29 @@ export function drawCanvas(state: DrawState): void {
   c.scale(dpr, dpr);
   c.fillStyle = "#fff";
   c.fillRect(0, 0, size.w, size.h);
-  const step = GRID * zoom, ox = size.w / 2, oy = size.h / 2;
-  c.beginPath();
-  c.strokeStyle = "#c2c2c2";
-  c.lineWidth = 1;
-  for (let x = ox % step; x < size.w; x += step) {
-    c.moveTo(x, 0);
-    c.lineTo(x, size.h);
+  if (showGrid) {
+    const step = GRID * zoom, ox = size.w / 2, oy = size.h / 2;
+    c.beginPath();
+    c.strokeStyle = "#c2c2c2";
+    c.lineWidth = 1;
+    for (let x = ox % step; x < size.w; x += step) {
+      c.moveTo(x, 0);
+      c.lineTo(x, size.h);
+    }
+    for (let y = oy % step; y < size.h; y += step) {
+      c.moveTo(0, y);
+      c.lineTo(size.w, y);
+    }
+    c.stroke();
+    c.beginPath();
+    c.strokeStyle = "#8a8a8a";
+    c.lineWidth = 1.5;
+    c.moveTo(ox, 0);
+    c.lineTo(ox, size.h);
+    c.moveTo(0, oy);
+    c.lineTo(size.w, oy);
+    c.stroke();
   }
-  for (let y = oy % step; y < size.h; y += step) {
-    c.moveTo(0, y);
-    c.lineTo(size.w, y);
-  }
-  c.stroke();
-  c.beginPath();
-  c.strokeStyle = "#8a8a8a";
-  c.lineWidth = 1.5;
-  c.moveTo(ox, 0);
-  c.lineTo(ox, size.h);
-  c.moveTo(0, oy);
-  c.lineTo(size.w, oy);
-  c.stroke();
   fills.forEach(f => {
     if (f.polygon.length < 3) return;
     c.beginPath();

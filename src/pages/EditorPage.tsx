@@ -2,6 +2,7 @@ import { DrawingCanvas } from "../features/canvas/components/DrawingCanvas";
 import { ColorPalette } from "../features/toolbar/components/ColorPalette";
 import { EditorNotices } from "../features/toolbar/components/EditorNotices";
 import { ExportButton } from "../features/toolbar/components/ExportButton";
+import { GridToggle } from "../features/toolbar/components/GridToggle";
 import { HistoryActions } from "../features/toolbar/components/HistoryActions";
 import { SymmetryControls } from "../features/toolbar/components/SymmetryControls";
 import { ToolPalette } from "../features/toolbar/components/ToolPalette";
@@ -32,7 +33,10 @@ export default function EditorPage() {
           onDelete={() => editor.selectedGroup && editor.deleteGroup(editor.selectedGroup)}
           onClear={editor.clearSheet}
         />
-        <ExportButton onExport={editor.exportPdf} />
+        <div className="floating-top-right">
+          <GridToggle showGrid={editor.showGrid} onToggle={editor.toggleGrid} />
+          <ExportButton onExport={editor.exportPdf} />
+        </div>
         <SymmetryControls symmetry={editor.symmetry} onChange={editor.setSymmetry} />
         <ColorPalette
           color={editor.color}

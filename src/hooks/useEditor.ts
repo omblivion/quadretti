@@ -36,6 +36,7 @@ export function useEditor() {
   const [rawMouse, setRawMouse] = useState<PixelPoint | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [fillNotice, setFillNotice] = useState<FillNotice | null>(null);
+  const [showGrid, setShowGrid] = useState(true);
 
   const size = useCanvasSize(wrapRef);
 
@@ -119,8 +120,9 @@ export function useEditor() {
       cursor,
       hover,
       color,
+      showGrid,
     });
-  }, [color, cursor, fills, hover, mouseStart, rawMouse, segments, selectedGroup, size, spaceStart, zoom]);
+  }, [color, cursor, fills, hover, mouseStart, rawMouse, segments, selectedGroup, showGrid, size, spaceStart, zoom]);
 
   useEffect(draw, [draw]);
 
@@ -245,6 +247,8 @@ export function useEditor() {
     armedSlot,
     zoom,
     setZoom,
+    showGrid,
+    toggleGrid: () => setShowGrid(value => !value),
     selectedGroup,
     fillNotice,
     history,
